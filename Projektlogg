@@ -57,5 +57,101 @@ date
 2018-02-08    94865.771090      -0.041498
 vi går över -5% gränsen 0.12% av dagarna vilket blir ungefär en gång vart 3-4:e år, och de dagar de skedde var det stora världsnyheter eller regimdagar: 2020-03-12, 2020-03-20 → Covid-kraschen, 2020-09-03/04 → Nasdaq selloff, 2022-09-13 → CPI-chock, 
 2018-02-05/08 → Volatility shock (XIV). För livehandel på ftmo kommer portföljen behöva en hard stop vid t.ex. -4.8% intraday drawdown där alla positioner stängs. Across 3,803 trading days, the portfolio experienced zero intraday drawdowns exceeding −10% 
-and only five days exceeding −5%, corresponding to a breach probability of 0.13%. The worst observed intraday drawdown was −6.45%, occurring during extreme market stress (COVID-19).
-(Kör monte carlo simulationer, och bygg sannolikhetstester att klara båda stegen i ett funded och ta en payout, kolla då på statistik som hur lång tid det tog.
+and only five days exceeding −5%, corresponding to a breach probability of 0.13%. The worst observed intraday drawdown was −6.45%, occurring during extreme market stress (COVID-19). För att maximera sannolikheten att denna portfölj klarar av funded regler
+kan vi simulera boostrap paths och dra data på hur sannolikt det är att portföljen klarar första och andra steget och samt lyckas ta en payout. Vi kan också kolla på hur lång tid det tar att uppnå dessa mål.
+(Kör monte carlo simulationer, och bygg sannolikhetstester att klara båda stegen i ett funded och ta en payout, kolla då på statistik som hur lång tid det kan ta.
+--- BOOTSTRAP PROBABILITIES ---
+P(Pass Challenge):   0.8680
+P(Pass Verification):0.8151
+P(Reach 1st payout): 0.7965
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 17361, 'mean': 237.87281838603766, 'median': 190.0, 'p05': 59.0, 'p95': 586.0}
+Verification: {'count': 16301, 'mean': 124.27887859640512, 'median': 83.0, 'p05': 29.0, 'p95': 357.0}
+Payout: {'count': 15930, 'mean': 37.768487131198995, 'median': 26.0, 'p05': 15.0, 'p95': 108.0}
+--- FAIL STAGE COUNTS ---
+fail_stage
+None            15930
+Challenge        2639
+Verification     1060
+Funded            371
+Name: count, dtype: int64
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss         2649
+MaxDailyLoss    1258
+Name: count, dtype: int64
+Detta är väldigt positivt, av 20 000 försök är det 80% som klarar alla steg och lyckas ta en payout. Kollar vi på chansen att ta en payout när man väl fått funded konto blir det P(payout / passed verification) ≈ 15930/16301=0.9772, alltså är det 97-7% att vi lyckas 
+ta en payout. Detta säger att risken ligger i evaluation steget. Medianen för att endast klara första steget (challenge) är på 190 dagar vilket är ganska långsamt, adderar vi medianen för de andra stegen 190, 83, 26 ligger hela processens median på 299 dagar. Alltså 
+tar det nästan ett år för att nå payout. Detta tar alldeles för lång tid, vi kommer förmodligen öka exposure under evalutation steget så att chansen att vi får ett funded ligger runt 55-70% men att det går lite snabbare, exposure kommer sedan sänkas när vi fått 
+funded. Kollar vi på vart de flesta försök failar ser vi att 2639 av de 4070 försök som faiar sker under första steget, vilket inte är konstigt eftersom 10% är en längre resa än de två andra stegen och kan därför utsättas för fler riskdagar. Den främsta anledningen
+till att försöken failar är maxloss: 2649, detta är positivt eftersom det visar att de flesta gånger är det inte en dag som dödar kontot. Däremot hade vi kunnat minska antal försök som failar på grund av maxdailyloss (som blev 1.258 försök) genom att implementera en 
+soft stop där vi gör en cutoff vid -4%. Vi ändrar också till 1.25 mer exponering under evaluation för att sedan gå tillbaka till normal i funded:
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval exposure factor: 1.25, Funded factor: 1.00
+P(Pass Challenge):   0.9018
+P(Pass Verification):0.8407
+P(Reach 1st payout): 0.8242
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18035, 'mean': 184.54372054338785, 'median': 145.0, 'p05': 42.0, 'p95': 462.0}
+Verification: {'count': 16814, 'mean': 93.26852622814322, 'median': 62.0, 'p05': 23.0, 'p95': 270.34999999999854}
+Payout: {'count': 16483, 'mean': 37.056603773584904, 'median': 26.0, 'p05': 15.0, 'p95': 104.0}
+--- FAIL STAGE COUNTS ---
+fail_stage
+None            16483
+Challenge        1965
+Verification     1221
+Funded            331
+Name: count, dtype: int64
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss         3480
+HorizonEnded      37
+Name: count, dtype: int64
+Resultatet är bättre på allt viktigt. Sannolikheten att klara alla steg ökade, antalet dagar att nå payout minskade, soft stoppen gör att färre försök failar på grund av riskfyllda dagar samtidigt som högre exponering leder till snabbare tillväxt i evaluation. Vi
+testar att öka evaluation exposure ytterligare till 2.0:
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval exposure factor: 2.00, Funded factor: 1.00
+P(Pass Challenge):   0.8131
+P(Pass Verification):0.6998
+P(Reach 1st payout): 0.6855
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 16261, 'mean': 98.53034868704262, 'median': 75.0, 'p05': 27.0, 'p95': 248.0}
+Verification: {'count': 13997, 'mean': 54.69350575123241, 'median': 41.0, 'p05': 18.0, 'p95': 141.0}
+Payout: {'count': 13709, 'mean': 36.71398351447954, 'median': 25.0, 'p05': 15.0, 'p95': 108.0}
+--- FAIL STAGE COUNTS ---
+fail_stage
+None            13709
+Challenge        3739
+Verification     2264
+Funded            288
+Name: count, dtype: int64
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss         6288
+MaxDailyLoss       3
+Name: count, dtype: int64
+För låg sannolikhet här, vi testar 1.5:
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval exposure factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):   0.8593
+P(Pass Verification):0.7742
+P(Reach 1st payout): 0.7585
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 17186, 'mean': 144.92173862446177, 'median': 111.0, 'p05': 35.0, 'p95': 367.0}
+Verification: {'count': 15483, 'mean': 75.09313440547697, 'median': 52.0, 'p05': 21.0, 'p95': 212.0}
+Payout: {'count': 15170, 'mean': 37.17165458141068, 'median': 25.0, 'p05': 15.0, 'p95': 109.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+None            15170
+Challenge        2814
+Verification     1703
+Funded            313
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss         4827
+HorizonEnded       3
+Name: count, dtype: int64
