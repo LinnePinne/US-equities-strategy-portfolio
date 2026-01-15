@@ -1,0 +1,61 @@
+Portfölj simulering och analyser av ett Trendföljande och Mean reversion system på amerikanska equities. Trendföljande systemet är uppbyggt såhär: Long only när EMA_fast(70) krossar EMA_slow(120) och ADX är över 15. Vikterna per marknad är 34% till sp500, 29% till nasdaq100 
+och 37% till dow jones. Target exposure på 1.25, alltså 125% av kapitalet. Nu är nästa steg att bygga en portföljintegration med trendföljande systemet och mean reversion systemet. Detta görs i US equities strategy portfolio. Mean reversion ser ut såhär: Long only när pris 
+ligger över EMA_slow(250) och under EMA_fast(20), samtidigt som pris stänger i lägsta 20% av dagens range. Lika vikter över alla tre marknader, US500, US100 och US30 med exposure på 100%. Vi simulerar en portfölj med båda strategierna där trendstrategin har en exposure 
+på 1.25 och mean reversion på 0.75, vilket blir totalt blir max_gross_exposure_total =2.0. Det är viktigt att notera att vikterna i de individuella strategiernas marknader är satta i sten och är inte del av portföljens viktoptimering. Utifrån ett portfölj perspektiv är
+vikten nu lika mellan de två strategierna. “Portfolio allocation is performed hierarchically. First, exposure budgets are assigned at the strategy level (Trend = 1.25, Mean Reversion = 0.75). Within each strategy, fixed market weights are applied based on standalone 
+research. The resulting portfolio exposure emerges from the interaction of strategy-level and intra-strategy allocations, rather than being imposed directly at the market level.”
+Equity Start: 50000.0000
+Equity End: 240480.7138
+CAGR: 0.1194
+Max Drawdown %: -26.3540
+Sharpe (ann.): 0.8638
+Calmar: 0.4531
+Avg Daily Return: 0.0004
+Daily Vol: 0.0081
+Sanity: Open positions at end: 2
+Avg gross exposure %: 88.64794291850401
+Max gross exposure %: 204.7320762300318
+Max DD% (MTM equity): -26.35%
+Max DD% (Closed trades only): -25.12%
+Väldigt positiva resultat 4.8x pengarna, 11.94% CAGR, fin sharpe (0.864) och calmar (0.453). Alla nyckeltal är bättre än strategierna på egen hand. Drawdown är ganska hög. Trendföljande hade -20% max drawdown vid 1.25 exposure och mean reversion hade -17% vid 1.0 exposure,
+och eftersom strategierna handlar long only på samma index är det inte konstigt att ett år som 2022 är negativt för denna portfölj. Däremot ser vi en förbättring i skillnaden mellan max drawdown och closed-only drawdown, i mean reversion strategin var skillnaden -17.91%
+och -8.91% så på sätt och vis är det en förbättring att vi lyckats kapa stora intratrade drawdowns även om total drawdown blir större. Vi testar 1.0/1.0 exposure:
+Equity Start: 50000.0000
+Equity End: 225870.5550
+CAGR: 0.1144
+Max Drawdown %: -21.7087
+Sharpe (ann.): 0.8774
+Calmar: 0.5269
+Avg Daily Return: 0.0004
+Daily Vol: 0.0076
+Sanity: Open positions at end: 2
+Avg gross exposure %: 78.03925510627944
+Max gross exposure %: 204.54500940620767
+Max DD% (MTM equity): -21.71%
+Max DD% (Closed trades only): -20.66%
+1.0/1.0 erbjuder lägre drawdown och högra riskjusterad avkastning. 1.25(0.75 gav runt 6.5% mer slutkapital men betalade det med runt -5% extra max drawdown vilket inte är en bra deal. 1.0/1.0 är objektivt bättre. Det enda som kvarstår är max intraday drawdown (mycket
+viktigt inför ftmo), sannolikhet att bryta reglerna max daily loss: -5% och max total loss -10%
+Days: 3803
+WorstDayDD: -0.0645
+AvgWorstDD: -0.0050
+P(Breach -5%): 0.0013
+P(Breach -10%): 0.0000
+Count Breach -5%: 5
+Count Breach -10%: 0
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-03-12   116157.704726      -0.064519
+2020-09-04   134216.721589      -0.061035
+2020-06-11   131126.677855      -0.055889
+2020-03-20   107533.886338      -0.054799
+2022-09-13   178915.422020      -0.052135
+2013-06-20    55800.918794      -0.048012
+2018-02-05    97653.187838      -0.044321
+2020-03-16   108807.999682      -0.042970
+2020-09-03   140377.455832      -0.042750
+2018-02-08    94865.771090      -0.041498
+vi går över -5% gränsen 0.12% av dagarna vilket blir ungefär en gång vart 3-4:e år, och de dagar de skedde var det stora världsnyheter eller regimdagar: 2020-03-12, 2020-03-20 → Covid-kraschen, 2020-09-03/04 → Nasdaq selloff, 2022-09-13 → CPI-chock, 
+2018-02-05/08 → Volatility shock (XIV). För livehandel på ftmo kommer portföljen behöva en hard stop vid t.ex. -4.8% intraday drawdown där alla positioner stängs. Across 3,803 trading days, the portfolio experienced zero intraday drawdowns exceeding −10% 
+and only five days exceeding −5%, corresponding to a breach probability of 0.13%. The worst observed intraday drawdown was −6.45%, occurring during extreme market stress (COVID-19).
+(Kör monte carlo simulationer, och bygg sannolikhetstester att klara båda stegen i ett funded och ta en payout, kolla då på statistik som hur lång tid det tog.
