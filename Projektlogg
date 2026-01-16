@@ -82,7 +82,7 @@ MaxDailyLoss    1258
 Name: count, dtype: int64
 Detta är väldigt positivt, av 20 000 försök är det 80% som klarar alla steg och lyckas ta en payout. Kollar vi på chansen att ta en payout när man väl fått funded konto blir det P(payout / passed verification) ≈ 15930/16301=0.9772, alltså är det 97-7% att vi lyckas 
 ta en payout. Detta säger att risken ligger i evaluation steget. Medianen för att endast klara första steget (challenge) är på 190 dagar vilket är ganska långsamt, adderar vi medianen för de andra stegen 190, 83, 26 ligger hela processens median på 299 dagar. Alltså 
-tar det nästan ett år för att nå payout. Detta tar alldeles för lång tid, vi kommer förmodligen öka exposure under evalutation steget så att chansen att vi får ett funded ligger runt 55-70% men att det går lite snabbare, exposure kommer sedan sänkas när vi fått 
+tar det nästan ett år för att nå payout. Detta tar alldeles för lång tid, vi kommer förmodligen öka exposure under evalutation steget så att chansen att vi får ett funded ligger runt 70-80% men att det går lite snabbare, exposure kommer sedan sänkas när vi fått 
 funded. Kollar vi på vart de flesta försök failar ser vi att 2639 av de 4070 försök som faiar sker under första steget, vilket inte är konstigt eftersom 10% är en längre resa än de två andra stegen och kan därför utsättas för fler riskdagar. Den främsta anledningen
 till att försöken failar är maxloss: 2649, detta är positivt eftersom det visar att de flesta gånger är det inte en dag som dödar kontot. Däremot hade vi kunnat minska antal försök som failar på grund av maxdailyloss (som blev 1.258 försök) genom att implementera en 
 soft stop där vi gör en cutoff vid -4%. Vi ändrar också till 1.25 mer exponering under evaluation för att sedan gå tillbaka till normal i funded:
@@ -136,12 +136,10 @@ Cutoff: -4.00%, Eval exposure factor: 1.50, Funded factor: 1.00
 P(Pass Challenge):   0.8593
 P(Pass Verification):0.7742
 P(Reach 1st payout): 0.7585
-
 --- TIME TO EVENT (days) ---
 Challenge: {'count': 17186, 'mean': 144.92173862446177, 'median': 111.0, 'p05': 35.0, 'p95': 367.0}
 Verification: {'count': 15483, 'mean': 75.09313440547697, 'median': 52.0, 'p05': 21.0, 'p95': 212.0}
 Payout: {'count': 15170, 'mean': 37.17165458141068, 'median': 25.0, 'p05': 15.0, 'p95': 109.0}
-
 --- FAIL STAGE COUNTS ---
 fail_stage
 None            15170
@@ -149,9 +147,10 @@ Challenge        2814
 Verification     1703
 Funded            313
 Name: count, dtype: int64
-
 --- FAIL REASON COUNTS (non-null) ---
 fail_reason
 MaxLoss         4827
 HorizonEnded       3
 Name: count, dtype: int64
+Skillnaden mellan 1.25 och 1.5 som är de riktiga kanditaterna, är att 1.5 sparar 45 dagar i median men tappar 6.57 procentenheter i payout rate. Det är en försämring. 1.25 är en bra sweet spot så vi låser in det samt -4% cutoff. Det som återstår nu är att bygga en 
+tradingbot med exakt dessa signaler och risk regelverk.
