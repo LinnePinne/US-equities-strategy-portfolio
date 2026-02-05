@@ -153,4 +153,5 @@ MaxLoss         4827
 HorizonEnded       3
 Name: count, dtype: int64
 Skillnaden mellan 1.25 och 1.5 som är de riktiga kanditaterna, är att 1.5 sparar 45 dagar i median men tappar 6.57 procentenheter i payout rate. Det är en försämring. 1.25 är en bra sweet spot så vi låser in det samt -4% cutoff. Det som återstår nu är att bygga en 
-tradingbot med exakt dessa signaler och risk regelverk.
+tradingbot med exakt dessa signaler och risk regelverk. Eftersom FTMO nu kommit ut med en ny typ av funded challenge som endast består av ett steg på +10% vill vi simulera sannolikheter på detta. Denna nya challenge har även striktare drawdown regel, total drawdown
+är samma som innan på -10% men max daily loss är nu -3% istället för -5%. Dessutom får inte den största visten utgöra mer än 50% av den total vinsten. Vi simulerar detta på samma sätt:
