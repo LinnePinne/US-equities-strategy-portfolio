@@ -155,3 +155,89 @@ Name: count, dtype: int64
 Skillnaden mellan 1.25 och 1.5 som är de riktiga kanditaterna, är att 1.5 sparar 45 dagar i median men tappar 6.57 procentenheter i payout rate. Det är en försämring. 1.25 är en bra sweet spot så vi låser in det samt -4% cutoff. Det som återstår nu är att bygga en 
 tradingbot med exakt dessa signaler och risk regelverk. Eftersom FTMO nu kommit ut med en ny typ av funded challenge som endast består av ett steg på +10% vill vi simulera sannolikheter på detta. Denna nya challenge har även striktare drawdown regel, total drawdown
 är samma som innan på -10% men max daily loss är nu -3% istället för -5%. Dessutom får inte den största visten utgöra mer än 50% av den total vinsten. Vi simulerar detta på samma sätt:
+--- FTMO 1-STEP PIPELINE (DayPath Bootstrap) ---
+MDL: 3%, ML: 10% (EOD trailing), BestDay: 50%, Cutoff: -4.00%
+Eval exposure factor: 1.25, Funded factor: 1.00
+P(Pass 1-Step Eval): 0.5433
+P(Reach 1st payout): 0.4803
+
+--- TIME TO EVENT (days) ---
+Eval: {'count': 10866, 'mean': 129.60960795140807, 'median': 109.0, 'p05': 38.0, 'p95': 288.0}
+Payout: {'count': 9605, 'mean': 68.52660072878709, 'median': 40.0, 'p05': 17.0, 'p95': 221.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN           9605
+Evaluation    9134
+Funded        1261
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxDailyLoss    7718
+MaxLoss         2677
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-03-12   116157.704726      -0.064519
+2020-09-04   134216.721589      -0.061035
+2020-06-11   131126.677855      -0.055889
+2020-03-20   107533.886338      -0.054799
+2022-09-13   178915.422020      -0.052135
+2013-06-20    55800.918794      -0.048012
+2018-02-05    97653.187838      -0.044321
+2020-03-16   108807.999682      -0.042970
+2020-09-03   140377.455832      -0.042750
+2018-02-08    94865.771090      -0.041498
+Maxdailyloss dominerar som orsak till failade konton, det är många historiska dagar som haft intraday drawdowns på -4 till -6%. Vi körde denna simulation med -4% cutoff som innan men detta är inte rimligt eftersom max daily loss är 3%. Vi testar att simulera igen och 
+ändrar cutoff till -2.5%:
+--- FTMO 1-STEP PIPELINE (DayPath Bootstrap) ---
+MDL: 3%, ML: 10% (EOD trailing), BestDay: 50%, Cutoff: -2.50%
+Eval exposure factor: 1.25, Funded factor: 1.00
+P(Pass 1-Step Eval): 0.7745
+P(Reach 1st payout): 0.7286
+
+--- TIME TO EVENT (days) ---
+Eval: {'count': 15490, 'mean': 147.69619109102646, 'median': 124.0, 'p05': 41.0, 'p95': 333.0}
+Payout: {'count': 14571, 'mean': 74.50456385972136, 'median': 41.0, 'p05': 17.0, 'p95': 249.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN           14571
+Evaluation     4510
+Funded          919
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss         5428
+HorizonEnded       1
+Name: count, dtype: int64
+Sannolikheterna för passing och payout ökar kraftigt tack vare att inga försök når -3% daily loss. Samtidigt som maxdailyloss gick till 0, går maxloss upp eftersom fler konton som inte dör av maxdailyloss dör istället vi maxloss. Det viktiga här är att payoff raten 
+blir enormt bättre. Om vi jämför med 2 stegs simulationen så är medianen för att nå payout vid 1 steg 165 dagar och i 2 steget är det 207 dagar. Sannolikheten för att nå payout är 82% i 2 steg och 73% i 1 steg. Vi kan testa att sänka exposure i 1 stegs simulation så 
+att vi hamnar på samma payout sannolikhet eller samma antal dagar för att kunna jämföra bättre. Vi simulerar med 1.0 exposure:
+--- FTMO 1-STEP PIPELINE (DayPath Bootstrap) ---
+MDL: 3%, ML: 10% (EOD trailing), BestDay: 50%, Cutoff: -2.50%
+Eval exposure factor: 1.00, Funded factor: 1.00
+P(Pass 1-Step Eval): 0.8246
+P(Reach 1st payout): 0.7751
+
+--- TIME TO EVENT (days) ---
+Eval: {'count': 16493, 'mean': 205.21791062875158, 'median': 173.0, 'p05': 55.0, 'p95': 461.0}
+Payout: {'count': 15502, 'mean': 75.04689717455813, 'median': 41.0, 'p05': 17.0, 'p95': 248.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN           15502
+Evaluation     3507
+Funded          991
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss         4484
+HorizonEnded      14
+Name: count, dtype: int64
+Här får vi fler antal dagar till payout med sämre payout rate. 2 steg verkar vara det bättre valet, det erbjuder högre daily loss limit, högre pass rate, kortare tid till funded och payout, bättre robusthet mot swings tack vare högre maxdailyloss.
