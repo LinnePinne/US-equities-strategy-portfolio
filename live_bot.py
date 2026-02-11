@@ -112,21 +112,44 @@ def mt5_timeframe(tf: str):
         return mt5.TIMEFRAME_D1
     raise ValueError("Unsupported timeframe")
 
-def fetch_ohlc(symbol: str, tf: str, n: int) -> pd.DataFrame:
-    rates = mt5.copy_rates_from_pos(symbol, mt5_timeframe(tf), 0, n)
-    if rates is None or len(rates) < 5:
-        raise RuntimeError(f"No/too few rates for {symbol} {tf}")
-    df = pd.DataFrame(rates)
-    df["time"] = pd.to_datetime(df["time"], unit="s")
-    df = df.set_index("time")
-    return df[["open", "high", "low", "close", "tick_volume"]].copy()
 
-def current_bar_open_time(symbol: str, tf: str) -> pd.Timestamp:
+_last_rate_error_log = {}  # (symbol, tf) -> last_log_epoch
+def fetch_ohlc(symbol: str, tf: str, n: int, min_bars: int = 120) -> pd.DataFrame:
     """
-    Returns the latest bar time given by MT5 rates (often the currently forming bar).
-    We'll treat this as "bar open time" to trigger our run.
+    Robust OHLC fetch:
+      - tries to select symbol
+      - retries a couple times
+      - if still too few bars, returns EMPTY df (so caller can skip)
+      - throttles error logs
     """
-    df = fetch_ohlc(symbol, tf, 3)
+    ensure_symbol(symbol)
+
+    tf_mt5 = mt5_timeframe(tf)
+
+    # Try a few times (MT5 can intermittently return None)
+    for attempt in range(3):
+        rates = mt5.copy_rates_from_pos(symbol, tf_mt5, 0, n)
+        if rates is not None and len(rates) >= min_bars:
+            df = pd.DataFrame(rates)
+            df["time"] = pd.to_datetime(df["time"], unit="s")
+            df = df.set_index("time")
+            return df[["open", "high", "low", "close", "tick_volume"]].copy()
+        time.sleep(0.2 * (attempt + 1))
+
+    # Still not enough data => return empty and throttle log
+    now = int(time.time())
+    key = (symbol, tf)
+    last = _last_rate_error_log.get(key, 0)
+    if now - last >= 60:
+        _last_rate_error_log[key] = now
+        got = 0 if rates is None else len(rates)
+        print(f"[{now_str()}] WARN: No/too few rates for {symbol} {tf} (got {got}, need >= {min_bars}). Skipping.")
+    return pd.DataFrame()
+
+def current_bar_open_time(symbol: str, tf: str) -> Optional[pd.Timestamp]:
+    df = fetch_ohlc(symbol, tf, 10, min_bars=2)
+    if df.empty or len(df) < 2:
+        return None
     return pd.Timestamp(df.index[-1])
 
 def last_closed_bar(df: pd.DataFrame) -> pd.Series:
@@ -289,14 +312,19 @@ def desired_notional(equity_now: float, strat: str, market_name: str) -> float:
 # BAR SYNC
 # ==========================
 
-def is_new_bar(state: dict, tf: str, clock_symbol: str) -> Tuple[bool, pd.Timestamp]:
+def is_new_bar(state: dict, tf: str, clock_symbol: str) -> Tuple[bool, Optional[pd.Timestamp]]:
     key = f"last_{tf.lower()}_bar"
     last = state.get(key, None)
     last_ts = pd.to_datetime(last) if last else None
+
     cur = current_bar_open_time(clock_symbol, tf)
+    if cur is None:
+        return False, None
+
     if last_ts is None or cur > last_ts:
         state[key] = str(cur)
         return True, cur
+
     return False, cur
 
 
@@ -317,7 +345,9 @@ def run_tf_on_new_h1(cfg: ExecConfig, state: dict, allow_entries: bool) -> None:
         magic = magic_for(mkt, "TF")
         pos = get_position(sym, magic)
 
-        df = fetch_ohlc(sym, "H1", H1_BARS)
+        df = fetch_ohlc(sym, "H1", H1_BARS, min_bars=200)
+        if df.empty:
+            continue
         df = compute_tf_indicators(df)
 
         prev = last_closed_bar(df)
@@ -371,7 +401,9 @@ def run_mr_on_new_d1(cfg: ExecConfig, state: dict, allow_entries: bool) -> None:
         magic = magic_for(mkt, "MR")
         pos = get_position(sym, magic)
 
-        df = fetch_ohlc(sym, "D1", D1_BARS)
+        df = fetch_ohlc(sym, "D1", D1_BARS, min_bars=300)
+        if df.empty:
+            continue
         df = compute_mr_indicators(df)
         prev_day = last_closed_bar(df)
 
@@ -402,6 +434,14 @@ def run_mr_on_new_d1(cfg: ExecConfig, state: dict, allow_entries: bool) -> None:
 def main():
     ensure_initialized()
     cfg = ExecConfig(log_csv_path="trade_log.csv", retries=3)
+
+    print(f"[{now_str()}] Warming up symbols/history...")
+    for m in MARKETS:
+        ensure_symbol(m["symbol"])
+        _ = mt5.copy_rates_from_pos(m["symbol"], mt5.TIMEFRAME_H1, 0, 5)
+        _ = mt5.copy_rates_from_pos(m["symbol"], mt5.TIMEFRAME_D1, 0, 5)
+    time.sleep(1.0)
+    print(f"[{now_str()}] Warmup done.")
 
     # State init
     state = load_state()
