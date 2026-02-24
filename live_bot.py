@@ -361,40 +361,67 @@ def run_mr(cfg, state, allow_entries):
 
         pos = get_position(sym, magic)
 
-        df = fetch_ohlc(sym, "D1", D1_BARS)
-
+        df = fetch_ohlc(sym, "D1", D1_BARS, min_bars=300)
         if df.empty:
             continue
-
+        
         df = compute_mr_indicators(df)
-
-        prev = last_closed_bar(df)
-
-        # EXIT
-        if pos is not None:
-
-            if mr_exit(prev):
-                close_position_market(sym, magic, cfg, "MR_EXIT")
-
+        prev_day = last_closed_bar(df)
+        
+        # ======================
+        # BAR LOCK SECTION
+        # ======================
+        bar_id = str(pd.Timestamp(prev_day.name).date())
+        
+        mr_processed = state.setdefault("mr_processed_d1", {})
+        last_done = mr_processed.get(mkt)
+        
+        if last_done == bar_id:
+            print(f"[MR] {mkt} already processed {bar_id}")  # optional debug
             continue
-
+        
+        # ========================
+        # BAR ALREADY PROCESSED?
+        # ========================
+        if last_done == bar_id:
+            continue   # nothing more this bar
+        
+        # ========================
+        # EXIT
+        # ========================
+        if pos is not None:
+            if mr_exit_signal(prev_day):
+                close_position_market(sym, magic, cfg, comment="MR_EXIT")
+        
+                # mark bar processed
+                mr_processed[mkt] = bar_id
+                save_state(state)
+        
+            continue
+        
+        
+        # ========================
         # ENTRY
+        # ========================
         if not allow_entries:
             continue
-
-        if capacity <= 0:
+        
+        if rem_total <= 0:
             continue
-
-        if mr_entry(prev):
-
-            notional = desired_notional(equity, "MR", name)
-
-            notional = min(notional, capacity)
-
-            ok, vol = open_long_by_notional(sym, notional, magic, cfg, "MR_ENTRY")
-
+        
+        if mr_entry_signal(prev_day):
+        
+            dn = desired_notional(equity_now, "MR", mkt)
+            dn = min(dn, rem_total)
+        
+            ok, vol = open_long_by_notional(sym, dn, magic, cfg, comment="MR_ENTRY")
+        
             if ok:
-                capacity -= notional
+                rem_total = max(0.0, rem_total - dn)
+        
+                # mark bar processed
+                mr_processed[mkt] = bar_id
+                save_state(state)
 
 
 # ==========================
@@ -412,6 +439,7 @@ def main():
     state.setdefault("day_start_equity", None)
     state.setdefault("day_start_date", None)
     state.setdefault("tf_bc", {})
+    state.setdefault("mr_processed_d1", {})   # market -> "YYYY-MM-DD"
 
     print("LIVE BOT STARTED")
 
