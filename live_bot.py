@@ -347,82 +347,77 @@ def run_tf(cfg, state, allow_entries):
 def run_mr(cfg, state, allow_entries):
 
     snap = account_snapshot()
-
-    equity = snap["equity"]
-
+    equity = float(snap["equity"])
     capacity = remaining_capacity(equity)
+
+    # state: market -> "YYYY-MM-DD" (last D1 bar processed for MR)
+    mr_processed = state.setdefault("mr_processed_d1", {})
 
     for m in MARKETS:
 
         name = m["name"]
         sym = m["symbol"]
 
-        magic = magic_for(name, "MR")
+        ensure_symbol(sym)
 
+        magic = magic_for(name, "MR")
         pos = get_position(sym, magic)
 
-        df = fetch_ohlc(sym, "D1", D1_BARS, min_bars=300)
+        df = fetch_ohlc(sym, "D1", D1_BARS)
+
         if df.empty:
             continue
-        
-        df = compute_mr_indicators(df)
-        prev_day = last_closed_bar(df)
-        
-        # ======================
-        # BAR LOCK SECTION
-        # ======================
-        bar_id = str(pd.Timestamp(prev_day.name).date())
-        
-        mr_processed = state.setdefault("mr_processed_d1", {})
-        last_done = mr_processed.get(mkt)
-        
-        if last_done == bar_id:
-            print(f"[MR] {mkt} already processed {bar_id}")  # optional debug
-            continue
-        
-        # ========================
-        # BAR ALREADY PROCESSED?
-        # ========================
-        if last_done == bar_id:
-            continue   # nothing more this bar
-        
-        # ========================
-        # EXIT
-        # ========================
-        if pos is not None:
-            if mr_exit_signal(prev_day):
-                close_position_market(sym, magic, cfg, comment="MR_EXIT")
-        
-                # mark bar processed
-                mr_processed[mkt] = bar_id
-                save_state(state)
-        
-            continue
-        
-        
-        # ========================
-        # ENTRY
-        # ========================
-        if not allow_entries:
-            continue
-        
-        if rem_total <= 0:
-            continue
-        
-        if mr_entry_signal(prev_day):
-        
-            dn = desired_notional(equity_now, "MR", mkt)
-            dn = min(dn, rem_total)
-        
-            ok, vol = open_long_by_notional(sym, dn, magic, cfg, comment="MR_ENTRY")
-        
-            if ok:
-                rem_total = max(0.0, rem_total - dn)
-        
-                # mark bar processed
-                mr_processed[mkt] = bar_id
-                save_state(state)
 
+        df = compute_mr_indicators(df)
+
+        prev = last_closed_bar(df)  # last CLOSED D1 bar
+        bar_id = str(pd.Timestamp(prev.name).date())  # e.g. "2026-02-24"
+
+        # ==========================
+        # BAR LOCK: only 1 action per D1 bar
+        # ==========================
+        if mr_processed.get(name) == bar_id:
+            continue
+
+        # ==========================
+        # EXIT (first)
+        # ==========================
+        if pos is not None:
+
+            if mr_exit(prev):
+                close_position_market(sym, magic, cfg, "MR_EXIT")
+
+            # mark processed even if exit not triggered (prevents re-check loops)
+            mr_processed[name] = bar_id
+            continue
+
+        # ==========================
+        # ENTRY
+        # ==========================
+        if not allow_entries:
+            # still mark processed to avoid reprocessing same bar all day
+            mr_processed[name] = bar_id
+            continue
+
+        if capacity <= 0:
+            mr_processed[name] = bar_id
+            continue
+
+        if mr_entry(prev):
+
+            notional = desired_notional(equity, "MR", name)
+            notional = min(notional, capacity)
+
+            ok, vol = open_long_by_notional(sym, notional, magic, cfg, "MR_ENTRY")
+
+            if ok:
+                capacity -= notional
+
+            mr_processed[name] = bar_id
+            continue
+
+        # If neither entry nor exit happened, still mark processed
+        mr_processed[name] = bar_id
 
 # ==========================
 # MAIN LOOP
