@@ -131,7 +131,7 @@ MAGIC_MAP = {
     ("US500", "MR"): 21001,
     ("US100", "MR"): 21002,
     ("US30", "MR"): 21003,
-    
+}
 def magic_for(market_name, strategy):
     return MAGIC_MAP[(market_name, strategy)]
 
@@ -444,7 +444,7 @@ def main():
     #DEBUG: verify magic numbers
     for m in MARKETS:
         for strat in ["TF", "MR"]:
-            print(f"{m{'name']} {strat} magic={magic_for(m['name'], strat)}")
+            print(f"{m['name']} {strat} magic={magic_for(m['name'], strat)}")
 
     last_heartbeat = 0
 
