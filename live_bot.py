@@ -124,13 +124,16 @@ def prev_closed_bar(df):
 # ==========================
 # MAGIC
 # ==========================
-
+MAGIC_MAP = {
+    ("US500", "TF"): 11001,
+    ("US100", "TF"): 11002,
+    ("US30", "TF"): 11003,
+    ("US500", "MR"): 21001,
+    ("US100", "MR"): 21002,
+    ("US30", "MR"): 21003,
+    
 def magic_for(market_name, strategy):
-
-    base = 11000 if strategy == "TF" else 21000
-
-    return base + abs(hash(market_name)) % 1000
-
+    return MAGIC_MAP[(market_name, strategy)]
 
 # ==========================
 # INDICATORS
@@ -437,6 +440,11 @@ def main():
     state.setdefault("mr_processed_d1", {})   # market -> "YYYY-MM-DD"
 
     print("LIVE BOT STARTED")
+
+    #DEBUG: verify magic numbers
+    for m in MARKETS:
+        for strat in ["TF", "MR"]:
+            print(f"{m{'name']} {strat} magic={magic_for(m['name'], strat)}")
 
     last_heartbeat = 0
 
