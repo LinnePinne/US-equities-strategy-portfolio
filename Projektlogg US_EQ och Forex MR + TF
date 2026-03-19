@@ -1,3 +1,12 @@
+Portfölj konstruktion av våra hittils fyra strategier. Våran Mean Reversion equities strategi handlar endast longs på dagsintervall, kraven är att pris är ovanför EMA_slow_(250) och under EMA_fast_(20) och per automatik måste då också ema_20 vara över ema_250. Entry sker när en deep 
+pullback uppstår, detta definieras som när pris stänger i lägsta 20% av dagens range. Exit sker på nästa dags open när dagens high är över ema_20. Vikterna för MR equities är equal, alltså US500 = 1/3, US100 = 1/3, US30 = 1/3. Trendföljande equities strategin handlar bara 
+longs den också, men på en timmes intervall. Entrysignal uppstår när EMA_fast(70) krossar över EMA_slow(120) och ADX är över 15. Exits när EMA_fast(70) går under EMA_slow(250) igen. Vikterna för TF equities är enligt ERC, US500 = 0.34, US100 = 0.29, US30 = 0.37.
+Forex mean reversion handlar på en timmes intervall under asia session 00:00 - 07:00 på båda sidorna och använder volymviktat average pris, eller VWAP som återställs vid 20:00 varje dag. Entries sker när pris stänger 2.25 standardavvikelser från VWAP på vardera sida, 
+exits sker vid 0.75 standardavvikelser. Vikterna för forex MR är också ERC viktat: EURCHF = 0.229429, EURCAD = 0.205126 GBPCHF = 0.196246, EURUSD = 0.190355, USDCHF = 0.178844. Våran trendföljande forex strategi är en asia breakout strategi som handlar båda sidorna 
+endast första timmen på London open, 08:00 - 09:00. Här definierar vi asia range som 00:00 - 08:00, signal uppstår när pris stänger under/över asia range samtidigt som average true range 14 (ATR14) är över det rullande medelvärdet av ATR med en historisk period på 75. 
+För USDJPY och EURJPY måste dagens asia range storlek vara över 70% av de senaste 252 (ungefär dagarna för ett börsår) dagar asia ranges, och för GBPJPY måste storleken vara över 75% för longs men under 65% för shorts. Exits sker när ATR14 går under rullande medelvärdet
+av ATR14 med en historisk period av 75 som vid entry. Vikterna för forex TF följer också ERC: EURJPY= 0.3567, GBPJPY = 0.2456, USDJPY = 0.3977. Vårat startkapital för portfölj simulationen är 50 000 USD och vi börjar med att sätta MAX_GROSS_EXPOSURE_TOTAL = 4.0 där
+varje marknad tilldelas 1.0 notional, alltså 50 000 dollar:
 --- TRADE COUNTS BY STRATEGY ---
 Strategy
 MR_EQ     550
@@ -86,4 +95,11 @@ date
 2020-03-16   150690.868596      -0.047485
 2018-02-05   131111.796446      -0.046458
 2020-09-03   190186.532530      -0.042858
-
+Detta är väldigt lvoande resultat, portföljen fungerar och producerar rimlig långsiktig tillväxt. Det finns en strategi som sticker ut här, MR_FX generar extremt många trades jämfört med de andra marknaderna. Det betyder att portföljen i praktiken nu drivs väldigt 
+mycket av hourly mean reversion FX. Det behöver inte vara fel, men det betyder att portföljens statistik sannolikt är starkt beroende av MR_FX, att FTMO-resultaten sannolikt också drivs mycket av MR_FX. Våra strategy budgets på 1.0 vardera ger inte automatiskt lika 
+mycket riskbidrag, bara lika mycket notional-budget, detta är en viktig skillnad. Gross exposure ser rimlig ut, vi har average gross exposure: 90.8%, max gross exposure: 321.7%. Med cap på 400% är det helt rimligt, det visar att det inte cappar allt för hårt, men att 
+vi inte ligger konstant maxade, vi får verklig diversifiering och timingeffekter mellan strategier. Det är mycket bra. FTMO-statistiken ser stark ut men inte orimlig. Det som är mest imponerande här är P(Pass Challenge): 0.9023 ,P(Pass Verification): 0.8370 och 
+P(Reach 1st payout): 0.8284. Det är högt. Men fortfarande inte så högt att det kan vara något direkt kodfel. Det går också ihop med att CAGR är bra men inte extrem, daily loss breach rate är låg. MaxLoss verkar vara det som främst fäller simuleringar, det ser faktiskt 
+ganska konsistent ut. Daily loss-profilen är ganska stark vi har bara 6 dagar med breach under -5%, 0 dagar under -10%. Det är väldigt positivt för FTMO-upplägget och samtidigt ser vi att de värsta dagarna ligger på -6.31%, -6.11%, -6.03%. Det betyder att portföljen 
+kan få riktigt tunga intraday-slag, men väldigt sällan. Det vi borde fokusera på nu är hur mycket varje strategi faktiskt bidrar till CAGR, drawdown och vilken/vilka strategi(er) som driver daily breaches. Vi vill också se korrelation mellan strategier. Det vi vill 
+kolla nu är standalone CAGR / DD / Sharpe per strategi, portföljens marginalbidrag när varje strategi tas bort, risk contribution till total vol och DD och korrelationsmatris mellan strategiernas dagliga PnL-serier
