@@ -1,1 +1,89 @@
+--- TRADE COUNTS BY STRATEGY ---
+Strategy
+MR_EQ     550
+MR_FX    9758
+TF_EQ     643
+TF_FX     444
+dtype: int64
+
+--- TRADE COUNTS BY STRATEGY x MARKET ---
+Strategy  Market
+MR_EQ     US100      187
+          US30       177
+          US500      186
+MR_FX     EURCAD    1894
+          EURCHF    1779
+          EURUSD    2325
+          GBPCHF    1665
+          USDCHF    2095
+TF_EQ     US100      223
+          US30       218
+          US500      202
+TF_FX     EURJPY     148
+          GBPJPY     150
+          USDJPY     146
+dtype: int64
+
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 328084.0724
+CAGR: 0.1438
+Max Drawdown %: -19.5620
+Sharpe (ann.): 0.9935
+Calmar: 0.7353
+Avg Daily Return: 0.0004
+Daily Vol: 0.0071
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 90.78472663898258
+Max gross exposure %: 321.72128828850913
+Max DD% (MTM equity): -19.56%
+Max DD% (Closed trades only): -16.37%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0631
+AvgWorstDD: -0.0052
+P(Breach -5%): 0.0015
+P(Breach -10%): 0.0000
+Count Breach -5%: 6
+Count Breach -10%: 0
+
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9023
+P(Pass Verification): 0.8370
+P(Reach 1st payout):  0.8284
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18046, 'mean': 123.95184528427352, 'median': 98.0, 'p05': 24.0, 'p95': 312.0}
+Verification: {'count': 16741, 'mean': 57.87115465025984, 'median': 38.0, 'p05': 6.0, 'p95': 175.0}
+Payout: {'count': 16568, 'mean': 24.871740704973444, 'median': 15.0, 'p05': 15.0, 'p95': 72.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             16568
+Challenge        1954
+Verification     1305
+Funded            173
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    3432
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-03-12   156125.559376      -0.063115
+2020-09-04   181838.893754      -0.061059
+2020-03-20   145487.325617      -0.060295
+2020-06-11   175799.853577      -0.059344
+2016-06-24    93696.013554      -0.058989
+2022-09-13   245994.617296      -0.050317
+2013-06-20    60390.283316      -0.049502
+2020-03-16   150690.868596      -0.047485
+2018-02-05   131111.796446      -0.046458
+2020-09-03   190186.532530      -0.042858
 
