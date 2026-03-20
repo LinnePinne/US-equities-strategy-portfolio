@@ -102,4 +102,852 @@ vi inte ligger konstant maxade, vi får verklig diversifiering och timingeffekte
 P(Reach 1st payout): 0.8284. Det är högt. Men fortfarande inte så högt att det kan vara något direkt kodfel. Det går också ihop med att CAGR är bra men inte extrem, daily loss breach rate är låg. MaxLoss verkar vara det som främst fäller simuleringar, det ser faktiskt 
 ganska konsistent ut. Daily loss-profilen är ganska stark vi har bara 6 dagar med breach under -5%, 0 dagar under -10%. Det är väldigt positivt för FTMO-upplägget och samtidigt ser vi att de värsta dagarna ligger på -6.31%, -6.11%, -6.03%. Det betyder att portföljen 
 kan få riktigt tunga intraday-slag, men väldigt sällan. Det vi borde fokusera på nu är hur mycket varje strategi faktiskt bidrar till CAGR, drawdown och vilken/vilka strategi(er) som driver daily breaches. Vi vill också se korrelation mellan strategier. Det vi vill 
-kolla nu är standalone CAGR / DD / Sharpe per strategi, portföljens marginalbidrag när varje strategi tas bort, risk contribution till total vol och DD och korrelationsmatris mellan strategiernas dagliga PnL-serier
+kolla nu är standalone CAGR / DD / Sharpe per strategi, portföljens marginalbidrag när varje strategi tas bort, risk contribution till total vol och DD och korrelationsmatris mellan strategiernas dagliga PnL-serier.
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  142218.901362      27.809719  ...            0.511424           0.030344
+MR_EQ   93182.035035      18.220969  ...            0.335086           0.027807
+TF_FX   24756.780395       4.840982  ...            0.089026           0.029385
+MR_FX   17926.355649       3.505349  ...            0.064464           0.040379
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.014000  0.088053 -0.026033
+MR_FX  0.014000  1.000000 -0.007848 -0.092938
+TF_EQ  0.088053 -0.007848  1.000000 -0.035826
+TF_FX -0.026033 -0.092938 -0.035826  1.000000
+MR_FX dominerar inte alls portföljen ekonomiskt, trots att den dominerar i trade count. Det är istället equities som driver portföljen, med ungefär 84.6% av total pnl. Korrelationerna är väldigt låga överallt. Det här är precis det man vill se i en portfölj. Inte 
+nödvändigtvis hög standalone-PnL från varje del, utan låga korrelationer så att total portfölj blir stabilare. MR_FX ser bättre ut en vad man först tror, trots lägst pnl contribution har den högst sharp-like daily. Det betyder inte automatiskt att vi ska maxa upp 
+den, men det betyder att MR_FX kan vara effektiv riskjusterat, trots låg absolut PnL. Tolkning för strategin med denna exposure:
+TF_EQ:
+Det här är er tydliga motor. Högst total PnL och bra riskjusterad profil. Den ser ut att vara kärnan i portföljen.
+MR_EQ:
+Också stark. Bidrar mycket och har låg korrelation mot resten. Den ser ut att förtjäna sin plats fullt ut.
+TF_FX:
+Relativt liten PnL-motor, men inte svag. Låg korrelation gör att den fortfarande är värdefull.
+MR_FX:
+Mest intressant just nu. Låg total PnL, men bäst Sharpe-like och låg korrelation. Det här ser mer ut som en stabilisator/diversifierare än en ren return-motor.
+Nu när vi har attribution och korrelation ska vi gå vidare med vikttester utifrån exposure. Vi ska inte optimera på trade count, utan på kombinationen av total PnL, max drawdown, Sharpe/Calmar, FTMO pass rate, korrelation/diversifiering. Eftersom forex marknaderna 
+faktiskt bidrar med minst PnL vill vi se hur protföljen presterar när vi skalar upp de strategierna till att närmare match equities strategierna. 
+Vi sätter i alla tester att MAX_GROSS_EXPOSURE_TOTAL är summan av strategiernas enskilda exposure. Vi testar STRATEGY_TARGETS = {
+    "TF_EQ": 1.0,
+    "MR_EQ": 1.0,
+    "TF_FX": 1.5,
+    "MR_FX": 1.5,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  165888.566672      32.438124  ...            0.480885           0.030261
+MR_EQ  107080.615828      20.938720  ...            0.310410           0.027432
+TF_FX   41907.530551       8.194668  ...            0.121483           0.028490
+MR_FX   30088.539645       5.883563  ...            0.087222           0.038704
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.014733  0.087696 -0.024229
+MR_FX  0.014733  1.000000 -0.007292 -0.095743
+TF_EQ  0.087696 -0.007292  1.000000 -0.036037
+TF_FX -0.024229 -0.095743 -0.036037  1.000000
+
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 394965.2527
+CAGR: 0.1591
+Max Drawdown %: -19.9390
+Sharpe (ann.): 1.0716
+Calmar: 0.7979
+Avg Daily Return: 0.0005
+Daily Vol: 0.0072
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 97.71199793919041
+Max gross exposure %: 402.53231811317
+Max DD% (MTM equity): -19.94%
+Max DD% (Closed trades only): -14.36%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0634
+AvgWorstDD: -0.0053
+P(Breach -5%): 0.0015
+P(Breach -10%): 0.0000
+Count Breach -5%: 6
+Count Breach -10%: 0
+
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9100
+P(Pass Verification): 0.8479
+P(Reach 1st payout):  0.8406
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18199, 'mean': 114.17193252376504, 'median': 90.0, 'p05': 22.0, 'p95': 287.0}
+Verification: {'count': 16959, 'mean': 53.30497081195825, 'median': 36.0, 'p05': 6.0, 'p95': 160.0}
+Payout: {'count': 16812, 'mean': 24.06215798239353, 'median': 15.0, 'p05': 15.0, 'p95': 68.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             16812
+Challenge        1801
+Verification     1240
+Funded            147
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    3188
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-03-20   168985.933201      -0.063446
+2020-03-12   180732.797063      -0.062354
+2020-06-11   203263.435302      -0.061120
+2020-09-04   211355.416407      -0.061051
+2016-06-24   102743.548536      -0.060383
+2013-06-20    62783.194204      -0.054005
+2022-09-13   288152.495403      -0.049423
+2020-03-16   174645.675452      -0.047494
+2018-02-05   151307.298410      -0.046433
+2020-09-03   221052.043279      -0.042885
+Vi ser små förbättringar i allt när vi ökar exposure för forex strategierna, vi testar ännu högre STRATEGY_TARGETS = {
+    "TF_EQ": 1.0,
+    "MR_EQ": 1.0,
+    "TF_FX": 3.0,
+    "MR_FX": 3.0,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  262737.211264      51.376068  ...            0.415783           0.030047
+MR_EQ  162788.128769      31.831859  ...            0.257613           0.026425
+TF_FX  121709.578589      23.799292  ...            0.192606           0.026056
+MR_FX   84675.247436      16.557538  ...            0.133999           0.034159
+
+[4 rows x 8 columns]
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.016169  0.087073 -0.020250
+MR_FX  0.016169  1.000000 -0.005422 -0.101834
+TF_EQ  0.087073 -0.005422  1.000000 -0.037026
+TF_FX -0.020250 -0.101834 -0.037026  1.000000
+
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 681910.1661
+CAGR: 0.2052
+Max Drawdown %: -21.0646
+Sharpe (ann.): 1.2397
+Calmar: 0.9742
+Avg Daily Return: 0.0006
+Daily Vol: 0.0078
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 118.48335271401402
+Max gross exposure %: 705.6422674460149
+Max DD% (MTM equity): -21.06%
+Max DD% (Closed trades only): -12.43%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0729
+AvgWorstDD: -0.0058
+P(Breach -5%): 0.0020
+P(Breach -10%): 0.0000
+Count Breach -5%: 8
+Count Breach -10%: 0
+
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.8882
+P(Pass Verification): 0.8184
+P(Reach 1st payout):  0.8068
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 17765, 'mean': 91.4585983675767, 'median': 72.0, 'p05': 14.0, 'p95': 231.0}
+Verification: {'count': 16368, 'mean': 43.087548875855326, 'median': 28.0, 'p05': 4.0, 'p95': 135.0}
+Payout: {'count': 16136, 'mean': 22.59407535944472, 'median': 15.0, 'p05': 15.0, 'p95': 59.25}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             16136
+Challenge        2235
+Verification     1397
+Funded            232
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    3864
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-03-20   262676.574569      -0.072879
+2024-04-29   548121.991175      -0.069627
+2013-06-20    70354.733604      -0.067541
+2020-06-11   311631.963651      -0.066752
+2016-06-24   134795.191518      -0.066479
+2020-09-04   329175.933005      -0.061027
+2020-03-12   278118.599772      -0.060075
+2022-09-22   443383.248681      -0.056231
+2014-01-29    79025.327717      -0.049353
+2020-03-16   269694.377189      -0.047523
+Vi testar höja ännu en gång STRATEGY_TARGETS = {
+    "TF_EQ": 1.0,
+    "MR_EQ": 1.0,
+    "TF_FX": 5.0,
+    "MR_FX": 5.0,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  481454.324388      94.144373  ...            0.362186           0.029820
+TF_FX  339531.108498      66.392473  ...            0.255421           0.023439
+MR_EQ  284609.975220      55.653104  ...            0.214105           0.025313
+MR_FX  223704.566445      43.743560  ...            0.168287           0.029089
+
+[4 rows x 8 columns]
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.016725  0.086915 -0.017521
+MR_FX  0.016725  1.000000 -0.002655 -0.105901
+TF_EQ  0.086915 -0.002655  1.000000 -0.039011
+TF_FX -0.017521 -0.105901 -0.039011  1.000000
+
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1379299.9746
+CAGR: 0.2674
+Max Drawdown %: -22.5529
+Sharpe (ann.): 1.3348
+Calmar: 1.1857
+Avg Daily Return: 0.0008
+Daily Vol: 0.0093
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 146.15705229642614
+Max gross exposure %: 1110.813432099673
+Max DD% (MTM equity): -22.55%
+Max DD% (Closed trades only): -15.41%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.1137
+AvgWorstDD: -0.0067
+P(Breach -5%): 0.0041
+P(Breach -10%): 0.0003
+Count Breach -5%: 16
+Count Breach -10%: 1
+
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.8930
+P(Pass Verification): 0.8238
+P(Reach 1st payout):  0.8008
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 17860, 'mean': 71.39636058230683, 'median': 56.0, 'p05': 11.0, 'p95': 184.0}
+Verification: {'count': 16476, 'mean': 32.87642631706725, 'median': 21.0, 'p05': 4.0, 'p95': 104.0}
+Payout: {'count': 16016, 'mean': 22.395167332667334, 'median': 15.0, 'p05': 15.0, 'p95': 58.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             16016
+Challenge        2140
+Verification     1384
+Funded            460
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    3984
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2024-04-29    1.089374e+06      -0.113685
+2022-09-22    8.125358e+05      -0.094691
+2013-06-20    8.139583e+04      -0.085654
+2020-03-20    4.645098e+05      -0.085402
+2020-06-11    5.409426e+05      -0.074288
+2014-01-29    9.451719e+04      -0.074226
+2016-06-24    1.914172e+05      -0.073207
+2022-03-28    7.183439e+05      -0.071099
+2013-06-21    7.769861e+04      -0.063604
+2020-09-04    5.834277e+05      -0.060996
+När vi ökar FX-exposure händer tre saker samtidigt, return stiger, Sharpe och Calmar stiger och FTMO-risken börjar till slut försämras. Från 1.0 / 1.0 till 1.5 / 1.5 är det en ren förbättring. Vi går ungefär från:
+CAGR 14.4% → 15.9%
+Sharpe 0.99 → 1.07
+Calmar 0.74 → 0.80
+payout 0.8284 → 0.8406
+med nästan oförändrad max DD:
+-19.56% → -19.94%
+Det här är starkt. Den nivån ser klart bättre ut än baseline.
+Från 1.5 / 1.5 till 3.0 / 3.0, här fortsätter portföljen förbättras på klassiska portföljmått:
+CAGR 15.9% → 20.5%
+Sharpe 1.07 → 1.24
+Calmar 0.80 → 0.97
+men FTMO-profilen börjar försämras:
+payout 0.8406 → 0.8068
+fler -5% breach-dagar
+värsta intraday-DD går från -6.34% till -7.29%
+Alltså: bättre “investment portfolio”, sämre “FTMO portfolio”.
+Från 3.0 / 3.0 till 5.0 / 5.0, här fortsätter klassiska performance-mått upp:
+CAGR 20.5% → 26.7%
+Sharpe 1.24 → 1.33
+Calmar 0.97 → 1.19
+Men FTMO blir tydligt sämre:
+payout 0.8068 → 0.8008
+-5% breach-dagar: 8 → 16
+-10% breach-dagar: 0 → 1
+värsta dag: -7.29% → -11.37%
+Det här är en tydlig regimeshift: vid 5/5 börjar vi få svansrisk som inte är passande för FTMO. Vi har alltså två olika alternativ beroende på mål, om målet är bästa investerings portfölj är högre forex exposure rätt
+val, den har högst CAGR, Sharpe och calmar samtidigt som drawdown fortfarande bara är -22.6% vilket inte är extremt givet hur mycket avkastningen stigit. Om målet är bäst portfölj för FTMO är forex exposure högre än 
+1.0 men lägre än 5.0 och troligtvis 4.0 rätt val. Av forex strategierna ger trendföljande mest pnl men mean reversion ger mest sharpe. Testar vi att kolla på de strategierna individuellt och bestämmer exposure utifrån 
+attribution bör vi ha högre exposure för mean reversion vi testar STRATEGY_TARGETS = {
+    "TF_EQ": 1.0,
+    "MR_EQ": 1.0,
+    "TF_FX": 2.5,
+    "MR_FX": 3.5,
+}: 
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  260828.860092      51.002906  ...            0.419400           0.029975
+MR_EQ  162009.166674      31.679540  ...            0.260503           0.026494
+TF_FX  101293.691602      19.807136  ...            0.162875           0.026142
+MR_FX   97778.006952      19.119673  ...            0.157222           0.034036
+
+[4 rows x 8 columns]
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.016580  0.087259 -0.020357
+MR_FX  0.016580  1.000000 -0.005494 -0.101933
+TF_EQ  0.087259 -0.005494  1.000000 -0.036902
+TF_FX -0.020357 -0.101933 -0.036902  1.000000
+
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 671909.7253
+CAGR: 0.2039
+Max Drawdown %: -19.8327
+Sharpe (ann.): 1.2561
+Calmar: 1.0283
+Avg Daily Return: 0.0006
+Daily Vol: 0.0077
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 120.57618576614502
+Max gross exposure %: 704.1036946815256
+Max DD% (MTM equity): -19.83%
+Max DD% (Closed trades only): -12.43%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0687
+AvgWorstDD: -0.0058
+P(Breach -5%): 0.0018
+P(Breach -10%): 0.0000
+Count Breach -5%: 7
+Count Breach -10%: 0
+
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.8960
+P(Pass Verification): 0.8294
+P(Reach 1st payout):  0.8198
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 17920, 'mean': 92.19073660714285, 'median': 73.0, 'p05': 14.0, 'p95': 234.0}
+Verification: {'count': 16588, 'mean': 44.195442488545936, 'median': 29.0, 'p05': 4.0, 'p95': 137.0}
+Payout: {'count': 16396, 'mean': 22.28933886313735, 'median': 15.0, 'p05': 15.0, 'p95': 56.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             16396
+Challenge        2080
+Verification     1332
+Funded            192
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    3604
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-06-11   310365.449925      -0.068690
+2020-03-20   261848.814659      -0.068036
+2013-06-20    69772.645351      -0.063182
+2020-09-04   328750.994931      -0.060998
+2020-03-12   276204.110330      -0.058994
+2016-06-24   134997.587729      -0.058621
+2024-04-29   544758.833178      -0.058352
+2020-03-16   268201.510589      -0.047291
+2022-09-22   440753.465258      -0.047042
+2018-02-05   224892.611763      -0.046353
+Vi bör även ha mer exposure mot TF_EQ än MR_EQ eftersom den har både högre PnL och shapre-like daily, vi testar STRATEGY_TARGETS = {
+    "TF_EQ": 1.5,
+    "MR_EQ": 1.0,
+    "TF_FX": 2.5,
+    "MR_FX": 3.5,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  495412.616624      96.873801  ...            0.517666           0.027750
+MR_EQ  219614.767139      42.943834  ...            0.229479           0.026502
+TF_FX  128166.610481      25.061911  ...            0.133924           0.024115
+MR_FX  113818.701942      22.256297  ...            0.118931           0.028547
+
+[4 rows x 8 columns]
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.021004  0.089252 -0.018987
+MR_FX  0.021004  1.000000 -0.006971 -0.107656
+TF_EQ  0.089252 -0.006971  1.000000 -0.038339
+TF_FX -0.018987 -0.107656 -0.038339  1.000000
+
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1007012.6962
+CAGR: 0.2392
+Max Drawdown %: -21.2253
+Sharpe (ann.): 1.1749
+Calmar: 1.1272
+Avg Daily Return: 0.0007
+Daily Vol: 0.0097
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 149.76527539952423
+Max gross exposure %: 750.1141542076803
+Max DD% (MTM equity): -21.23%
+Max DD% (Closed trades only): -18.52%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0934
+AvgWorstDD: -0.0074
+P(Breach -5%): 0.0036
+P(Breach -10%): 0.0000
+Count Breach -5%: 14
+Count Breach -10%: 0
+
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.8469
+P(Pass Verification): 0.7600
+P(Reach 1st payout):  0.7419
+
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 16939, 'mean': 71.96906547021666, 'median': 56.0, 'p05': 11.0, 'p95': 188.09999999999854}
+Verification: {'count': 15200, 'mean': 34.38519736842105, 'median': 21.0, 'p05': 4.0, 'p95': 109.0}
+Payout: {'count': 14839, 'mean': 22.071163825055596, 'median': 15.0, 'p05': 15.0, 'p95': 55.0}
+
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             14839
+Challenge        3061
+Verification     1739
+Funded            361
+Name: count, dtype: int64
+
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    5161
+Name: count, dtype: int64
+
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-06-11   425272.273187      -0.093425
+2020-09-04   449902.455583      -0.075614
+2013-06-20    70576.801112      -0.073211
+2022-09-13   645796.244245      -0.071193
+2016-06-24   145731.980995      -0.069770
+2020-03-20   333813.346103      -0.068036
+2020-09-03   480392.468347      -0.062186
+2020-03-12   352113.941768      -0.058994
+2024-04-29   769785.109082      -0.058346
+2020-04-07   365139.196372      -0.057323
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 4.0,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  320087.303876      62.590400  ...            0.455187           0.029601
+MR_EQ  156458.279299      30.594110  ...            0.222495           0.026579
+MR_FX  117866.885182      23.047885  ...            0.167615           0.032486
+TF_FX  108787.459539      21.272479  ...            0.154703           0.025496
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.017625  0.087813 -0.019547
+MR_FX  0.017625  1.000000 -0.005165 -0.103634
+TF_EQ  0.087813 -0.005165  1.000000 -0.036969
+TF_FX -0.019547 -0.103634 -0.036969  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 753199.9279
+CAGR: 0.2138
+Max Drawdown %: -17.6160
+Sharpe (ann.): 1.2728
+Calmar: 1.2137
+Avg Daily Return: 0.0006
+Daily Vol: 0.0079
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 130.3380226795885
+Max gross exposure %: 764.6125584957888
+Max DD% (MTM equity): -17.62%
+Max DD% (Closed trades only): -13.96%
+
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0770
+AvgWorstDD: -0.0061
+P(Breach -5%): 0.0018
+P(Breach -10%): 0.0000
+Count Breach -5%: 7
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9183
+P(Pass Verification): 0.8620
+P(Reach 1st payout):  0.8522
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18367, 'mean': 88.0156258507105, 'median': 69.0, 'p05': 14.0, 'p95': 226.0}
+Verification: {'count': 17240, 'mean': 41.94419953596288, 'median': 26.0, 'p05': 4.0, 'p95': 134.0}
+Payout: {'count': 17044, 'mean': 22.65495188922788, 'median': 15.0, 'p05': 15.0, 'p95': 58.0}
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 4.5,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  344313.181559      67.327568  ...            0.448628           0.029544
+MR_EQ  167472.732202      32.747894  ...            0.218211           0.026465
+MR_FX  139760.144316      27.328929  ...            0.182102           0.031773
+TF_FX  115934.651295      22.670053  ...            0.151059           0.025188
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.017929  0.087866 -0.019178
+MR_FX  0.017929  1.000000 -0.004871 -0.104225
+TF_EQ  0.087866 -0.004871  1.000000 -0.037133
+TF_FX -0.019178 -0.104225 -0.037133  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 817480.7094
+CAGR: 0.2209
+Max Drawdown %: -17.1776
+Sharpe (ann.): 1.2984
+Calmar: 1.2861
+Avg Daily Return: 0.0007
+Daily Vol: 0.0080
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 134.84703137547098
+Max gross exposure %: 815.2014222734133
+Max DD% (MTM equity): -17.18%
+Max DD% (Closed trades only): -14.33%
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0789
+AvgWorstDD: -0.0062
+P(Breach -5%): 0.0018
+P(Breach -10%): 0.0000
+Count Breach -5%: 7
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9225
+P(Pass Verification): 0.8670
+P(Reach 1st payout):  0.8570
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18451, 'mean': 85.95593734756923, 'median': 67.0, 'p05': 13.0, 'p95': 222.0}
+Verification: {'count': 17341, 'mean': 40.92993483651462, 'median': 26.0, 'p05': 4.0, 'p95': 129.0}
+Payout: {'count': 17141, 'mean': 22.628318067790676, 'median': 15.0, 'p05': 15.0, 'p95': 57.0}
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 6.5,
+}
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  460855.459045      90.116437  ...            0.426541           0.029337
+MR_FX  249509.521497      48.789504  ...            0.230932           0.029113
+MR_EQ  220007.599692      43.020649  ...            0.203626           0.026032
+TF_FX  150074.841427      29.345882  ...            0.138901           0.024061
+
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.018954  0.088148 -0.018003
+MR_FX  0.018954  1.000000 -0.003692 -0.105833
+TF_EQ  0.088148 -0.003692  1.000000 -0.037845
+TF_FX -0.018003 -0.105833 -0.037845  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1130447.4217
+CAGR: 0.2495
+Max Drawdown %: -16.5862
+Sharpe (ann.): 1.3822
+Calmar: 1.5044
+Avg Daily Return: 0.0007
+Daily Vol: 0.0084
+Sanity: Open positions at end: 2
+Avg gross exposure %: 152.89400569474384
+Max gross exposure %: 1018.1264277443678
+Max DD% (MTM equity): -16.59%
+Max DD% (Closed trades only): -15.83%
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0866
+AvgWorstDD: -0.0066
+P(Breach -5%): 0.0020
+P(Breach -10%): 0.0000
+Count Breach -5%: 8
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9261
+P(Pass Verification): 0.8722
+P(Reach 1st payout):  0.8636
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18521, 'mean': 77.2764429566438, 'median': 61.0, 'p05': 11.0, 'p95': 201.0}
+Verification: {'count': 17444, 'mean': 37.08616143086448, 'median': 23.0, 'p05': 4.0, 'p95': 118.0}
+Payout: {'count': 17272, 'mean': 22.492241778601205, 'median': 15.0, 'p05': 15.0, 'p95': 58.0}
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 7.0,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  495636.901388      96.917658  ...            0.421887           0.029291
+MR_FX  283403.258020      55.417141  ...            0.241233           0.028493
+MR_EQ  235563.557037      46.062487  ...            0.200512           0.025929
+TF_FX  160205.720290      31.326891  ...            0.136367           0.023805
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.019170  0.088233 -0.017774
+MR_FX  0.019170  1.000000 -0.003399 -0.106068
+TF_EQ  0.088233 -0.003399  1.000000 -0.038035
+TF_FX -0.017774 -0.106068 -0.038035  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1224809.4367
+CAGR: 0.2567
+Max Drawdown %: -16.7476
+Sharpe (ann.): 1.3988
+Calmar: 1.5328
+Avg Daily Return: 0.0007
+Daily Vol: 0.0085
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 157.40850013913138
+Max gross exposure %: 1069.000547791092
+Max DD% (MTM equity): -16.75%
+Max DD% (Closed trades only): -16.20%
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0885
+AvgWorstDD: -0.0067
+P(Breach -5%): 0.0023
+P(Breach -10%): 0.0000
+Count Breach -5%: 9
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9266
+P(Pass Verification): 0.8719
+P(Reach 1st payout):  0.8633
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18532, 'mean': 74.89909345996115, 'median': 58.0, 'p05': 11.0, 'p95': 195.0}
+Verification: {'count': 17438, 'mean': 36.245211606835646, 'median': 23.0, 'p05': 4.0, 'p95': 115.0}
+Payout: {'count': 17267, 'mean': 22.40145943128511, 'median': 15.0, 'p05': 15.0, 'p95': 58.0}
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 7.5,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  533007.059458     104.225080  ...            0.417525           0.029246
+MR_FX  320289.367004      62.629911  ...            0.250895           0.027891
+MR_EQ  252223.628822      49.320225  ...            0.197576           0.025828
+TF_FX  171068.470578      33.451011  ...            0.134004           0.023559
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.019371  0.088323 -0.017569
+MR_FX  0.019371  1.000000 -0.003107 -0.106244
+TF_EQ  0.088323 -0.003107  1.000000 -0.038229
+TF_FX -0.017569 -0.106244 -0.038229  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1326588.5259
+CAGR: 0.2639
+Max Drawdown %: -17.2305
+Sharpe (ann.): 1.4138
+Calmar: 1.5315
+Avg Daily Return: 0.0008
+Daily Vol: 0.0086
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 161.924101393847
+Max gross exposure %: 1119.932008503962
+Max DD% (MTM equity): -17.23%
+Max DD% (Closed trades only): -16.58%
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0904
+AvgWorstDD: -0.0069
+P(Breach -5%): 0.0025
+P(Breach -10%): 0.0000
+Count Breach -5%: 10
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9237
+P(Pass Verification): 0.8659
+P(Reach 1st payout):  0.8567
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18474, 'mean': 72.91041463678684, 'median': 56.0, 'p05': 11.0, 'p95': 191.0}
+Verification: {'count': 17319, 'mean': 35.812344823604136, 'median': 23.0, 'p05': 4.0, 'p95': 113.0}
+Payout: {'count': 17134, 'mean': 22.426520368857243, 'median': 15.0, 'p05': 15.0, 'p95': 58.0}
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 9.5,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  712265.182320     139.277509  ...            0.402575           0.029088
+MR_FX  502581.442066      98.275605  ...            0.284061           0.025642
+MR_EQ  331484.775570      64.819080  ...            0.187356           0.025438
+TF_FX  222943.454877      43.594731  ...            0.126008           0.022667
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.020052  0.088717 -0.016944
+MR_FX  0.020052  1.000000 -0.001955 -0.106443
+TF_EQ  0.088717 -0.001955  1.000000 -0.039044
+TF_FX -0.016944 -0.106443 -0.039044  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1819274.8548
+CAGR: 0.2927
+Max Drawdown %: -19.7657
+Sharpe (ann.): 1.4590
+Calmar: 1.4810
+Avg Daily Return: 0.0008
+Daily Vol: 0.0092
+Sanity: Open positions at end: 2
+Avg gross exposure %: 179.99764022083107
+Max gross exposure %: 1324.2332008726623
+Max DD% (MTM equity): -19.77%
+Max DD% (Closed trades only): -18.08%
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0981
+AvgWorstDD: -0.0074
+P(Breach -5%): 0.0033
+P(Breach -10%): 0.0000
+Count Breach -5%: 13
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9305
+P(Pass Verification): 0.8740
+P(Reach 1st payout):  0.8621
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18610, 'mean': 65.22095647501344, 'median': 51.0, 'p05': 10.0, 'p95': 169.0}
+Verification: {'count': 17480, 'mean': 32.368764302059496, 'median': 20.0, 'p05': 4.0, 'p95': 104.0}
+Payout: {'count': 17242, 'mean': 22.039264586474886, 'median': 15.0, 'p05': 15.0, 'p95': 57.0}
+STRATEGY_TARGETS = {
+    "TF_EQ": 1.125,
+    "MR_EQ": 0.875,
+    "TF_FX": 2.5,
+    "MR_FX": 8.0,
+}:
+--- STRATEGY ATTRIBUTION ---
+           Total PnL  Avg Daily PnL  ...  PnL Contribution %  Sharpe-like Daily
+TF_EQ  573150.892377     112.074871  ...            0.413431           0.029204
+MR_FX  360397.306064      70.472684  ...            0.259966           0.027305
+MR_EQ  270063.111028      52.808586  ...            0.194805           0.025728
+TF_FX  182715.580910      35.728506  ...            0.131798           0.023322
+--- STRATEGY CORRELATION (DAILY PnL) ---
+          MR_EQ     MR_FX     TF_EQ     TF_FX
+MR_EQ  1.000000  0.019559  0.088416 -0.017384
+MR_FX  0.019559  1.000000 -0.002816 -0.106367
+TF_EQ  0.088416 -0.002816  1.000000 -0.038428
+TF_FX -0.017384 -0.106367 -0.038428  1.000000
+--- COMBINED PORTFOLIO METRICS (USD, 1H master) ---
+Equity Start: 50000.0000
+Equity End: 1436326.8904
+CAGR: 0.2711
+Max Drawdown %: -17.8269
+Sharpe (ann.): 1.4272
+Calmar: 1.5206
+Avg Daily Return: 0.0008
+Daily Vol: 0.0087
+
+Sanity: Open positions at end: 2
+Avg gross exposure %: 166.44081272796421
+Max gross exposure %: 1170.9209068614657
+Max DD% (MTM equity): -17.83%
+Max DD% (Closed trades only): -16.95%
+--- FTMO DAILY LOSS ANALYSIS (MTM, 1H) ---
+Days: 3931
+WorstDayDD: -0.0923
+AvgWorstDD: -0.0070
+P(Breach -5%): 0.0025
+P(Breach -10%): 0.0000
+Count Breach -5%: 10
+Count Breach -10%: 0
+--- FTMO PIPELINE (DayPath Bootstrap) ---
+Cutoff: -4.00%, Eval factor: 1.50, Funded factor: 1.00
+P(Pass Challenge):    0.9237
+P(Pass Verification): 0.8653
+P(Reach 1st payout):  0.8557
+--- TIME TO EVENT (days) ---
+Challenge: {'count': 18474, 'mean': 70.79484681173541, 'median': 55.0, 'p05': 10.0, 'p95': 185.0}
+Verification: {'count': 17306, 'mean': 34.699352825609616, 'median': 22.0, 'p05': 4.0, 'p95': 110.0}
+Payout: {'count': 17113, 'mean': 22.240811079296442, 'median': 15.0, 'p05': 15.0, 'p95': 57.0}
+--- FAIL STAGE COUNTS ---
+fail_stage
+NaN             17113
+Challenge        1526
+Verification     1168
+Funded            193
+Name: count, dtype: int64
+--- FAIL REASON COUNTS (non-null) ---
+fail_reason
+MaxLoss    2887
+Name: count, dtype: int64
+--- WORST INTRADAY DD DAYS ---
+            DayStartEquity  MinIntradayDD
+date                                     
+2020-06-11    5.964508e+05      -0.092318
+2021-11-26    8.389897e+05      -0.064681
+2013-06-20    7.892543e+04      -0.063884
+2025-04-03    1.309911e+06      -0.060720
+2020-09-04    6.523266e+05      -0.060663
+2024-04-29    1.178991e+06      -0.058351
+2020-05-01    5.853593e+05      -0.057322
+2020-03-20    5.094897e+05      -0.056312
+2015-06-23    1.483995e+05      -0.053527
+2016-06-24    1.996994e+05      -0.050756
+
